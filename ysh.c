@@ -110,7 +110,7 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 str[head] == '&'    ||
                 str[head] == '>'    ||
                 str[head] == '<'    ||
-                str[head] == '\0'    ||
+                str[head] == '\0'   ||
                 str[head] == '\n') {
             if ((tmp = (char*)
                         malloc(sizeof(char) * (head - tail + 1))) == NULL)
@@ -166,7 +166,7 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 memcpy(cmd->io->io_name, str + head, len);
                 cmd->io->io_name[len] = '\0';
 //              fprintf(stdout, "io_name = %s\n", cmd->io->io_name);
-                head += len + 1;
+                head += len;
             }
             if (str[head] == '\0' || str[head] == '\n') {
                 cmd->type = TCOM;
@@ -297,12 +297,12 @@ int exec_cmd(cmd_t* cmd, int in_fd)
 
         return 0;
     } else if (strcmp(cmd->args[0], "やすなちゃん") == 0) {
-		ysh_yasuna();
+        ysh_yasuna();
         if (cmd->next != NULL)
             exec_cmd(cmd->next, STDIN_FILENO);
-		
-		return 0;
-	}
+        
+        return 0;
+    }
     if (strcmp(cmd->args[0], "exit") == 0)
         ysh_exit(cmd);
 

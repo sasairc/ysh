@@ -43,5 +43,5 @@ int ysh_exit(cmd_t* cmd)
 
 void ysh_yasuna(void)
 {
-	fprintf(stdout, "かわいい！\n");
+    fprintf(stdout, "かわいい！\n");
 }
