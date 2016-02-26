@@ -52,6 +52,7 @@ int main(int argc, char* argv[])
             case    'c':
                 yt.cflag = 1;
                 memcpy(buf, optarg, strlen(optarg));
+                buf[strlen(optarg)] = '\n';
                 break;
             case    0:
                 print_usage();
