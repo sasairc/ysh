@@ -368,16 +368,20 @@ char* mbstrtok(char* str, char* delimiter)
 int trim(char* str)
 {
     int i   = 0,
-        j   = 0;
+        j   = 0,
+        cnt = 0;
 
     i = strlen(str) - 1;
     while (i >= 0 && isspace(*(str + i))) {
         i--;
+        cnt++;
     }
     *(str + i + 1) = '\0';
     i = 0;
-    while (isspace(*(str + i)))
+    while (isspace(*(str + i))) {
         i++;
+        cnt++;
+    }
 
     if (i > 0) {
         j = 0;
@@ -386,7 +390,7 @@ int trim(char* str)
         *(str + j) = '\0';
     }
 
-    return 0;
+    return cnt;
 }
 
 int strcmp_lite(const char* str1, const char* str2)

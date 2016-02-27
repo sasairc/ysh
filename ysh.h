@@ -41,6 +41,9 @@ typedef struct CMD_T {
     struct CMD_T*   prev;
 } cmd_t;
 
+extern cmd_t* add_cmdline_t(cmd_t** cmd);
+extern int set_io_val(char* str, int flag, cmd_t** cmd);
+extern int set_cmd_val(char* str, int type, cmd_t** cmd);
 extern int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start);
 extern int file_redirect(cmd_t* cmd);
 extern int exec_cmd(cmd_t* cmd, int in_fd);

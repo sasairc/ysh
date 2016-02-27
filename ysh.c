@@ -85,13 +85,110 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+int set_io_val(char* str, int flag, cmd_t** cmd)
+{
+    int     msc = 0,
+            len = 0;
+
+    char*   tmp = NULL,
+        *   bak = str;
+
+    io_t*   io  = NULL;
+
+    while ( *str != ';'     &&
+            *str != '|'     &&
+            *str != '&'     &&
+            *str != '<'     &&
+            *str != '>'     &&
+            *str != '\0'    &&
+            *str != '\n') {
+        str++;
+        len++;
+    }
+
+    str = bak;
+    if ((tmp = (char*)
+                malloc(sizeof(char) * (len + 1))) == NULL)
+        return -2;
+
+    memcpy(tmp, str, len);
+    tmp[len] = '\0';
+
+    if ((msc = trim(tmp)) > 0)
+        msc--;
+
+    if ((io = (io_t*)
+                malloc(sizeof(io_t))) == NULL)
+        return -2;
+
+    if ((io->io_name = (char*)
+                malloc(sizeof(char) * (len + 1))) == NULL)
+        return -3;
+
+    memcpy(io->io_name, tmp, strlen(tmp) + 1);
+    io->io_flag = flag;
+    free(tmp);
+
+    (*cmd)->io = io;
+
+    return len + 1;
+}
+
+int set_cmd_val(char* str, int type, cmd_t** cmd)
+{
+    int     msc = 0,
+            len = 0;
+
+    char*   tmp = NULL,
+        *   bak = str;
+
+    while ( *str != ';'     &&
+            *str != '|'     &&
+            *str != '&'     &&
+            *str != '<'     &&
+            *str != '>'     &&
+            *str != '\0'    &&
+            *str != '\n') {
+        str++;
+        len++;
+    }
+
+    str = bak;
+    if ((tmp = (char*)
+                malloc(sizeof(char) * (len + 1))) == NULL)
+        return -1;
+
+    memcpy(tmp, str, len);
+    tmp[len] = '\0';
+
+    if ((msc = trim(tmp)) > 0)
+        msc--;
+
+    (*cmd)->args = str_to_args(tmp);
+    (*cmd)->type = type;
+    free(tmp);
+
+    return msc;
+}
+
+cmd_t* add_cmdline_t(cmd_t** cmd)
+{
+    if (((*cmd)->next = (cmd_t*)
+                malloc(sizeof(cmd_t))) == NULL)
+        return NULL;
+
+    (*cmd)->next->prev = *cmd;
+    *cmd = (*cmd)->next;
+    (*cmd)->next = NULL;
+    (*cmd)->io = NULL;
+
+    return *cmd;
+}
+
 int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
 {
-    int     len     = 0,
-            head    = 0,
+    int     head    = 0,
             tail    = 0;
-
-    char*   tmp     = NULL;
 
     cmd_t*  cmd     = NULL,
          *  start   = NULL;
@@ -109,109 +206,67 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
         if (str[head] == ';'        ||
                 str[head] == '|'    ||
                 str[head] == '&'    ||
-                str[head] == '>'    ||
                 str[head] == '<'    ||
+                str[head] == '>'    ||
                 str[head] == '\0'   ||
                 str[head] == '\n') {
-            if ((tmp = (char*)
-                        malloc(sizeof(char) * (head - tail + 1))) == NULL)
-                goto ERR;
-
-            memcpy(tmp, str + tail, head - tail);
-            tmp[head - tail] = '\0';
-            trim(tmp);
-            cmd->args = str_to_args(tmp);
-            free(tmp);
-
-            /*
-             * io token
-             */
-            if (str[head] == '>' || str[head] == '<') {
-                if ((cmd->io = (io_t*)
-                            malloc(sizeof(io_t))) == NULL)
-                    goto ERR;
-
-                if (str[head] == '>') {
-                    if (str[head + 1] == '>') {
-                        cmd->io->io_flag = IOCAT;
-                        head++;
-                    } else {
-                        cmd->io->io_flag = IOWRITE;
-                    }
-                } else if (str[head] == '<') {
-                    if (str[head + 1] == '<') {
-                        cmd->io->io_flag = IOHERE;
-                        head++;
-                    } else {
-                        cmd->io->io_flag = IOREAD;
-                    }
-                }
-
-                head++;
-                while (isspace(str[head]))
-                    head++;
-
-                len = 0;
-                while (!isspace(str[head + len])    &&
-                        str[head + len] != ';'      &&
-                        str[head + len] != '|'      &&
-                        str[head + len] != '&'      &&
-                        str[head + len] != '>'      &&
-                        str[head + len] != '<'      &&
-                        str[head + len] != '\n')
-                    len++;
-                if ((cmd->io->io_name = (char*)
-                            malloc(sizeof(char) * (len + 1))) == NULL)
-                    goto ERR;
-
-                memcpy(cmd->io->io_name, str + head, len);
-                cmd->io->io_name[len] = '\0';
-//              fprintf(stdout, "io_name = %s\n", cmd->io->io_name);
-                head += len;
-            }
-            if (str[head] == '\0' || str[head] == '\n') {
-                cmd->type = TCOM;
-                break;
-            }
-
-            /*
-             * generic token
-             */
             switch (str[head]) {
                 case    ';':
-                    cmd->type = TPAREN;
-                    break;
-                case    '|':
-                    if (str[head + 1] == '|') {
-                        cmd->type = TOR;
-                        head++;
-                    } else {
-                        cmd->type = TPIPE;
-                    }
+                    head++;
+                    set_cmd_val(&str[tail], TPAREN, &cmd);
                     break;
                 case    '&':
                     if (str[head + 1] == '&') {
-                        cmd->type = TAND;
-                        head++;
-                    } else {
-                        cmd->type = TCOM;
+                        head += 2;
+                        head += set_cmd_val(&str[tail], TAND, &cmd);
                     }
                     break;
+                case    '|':
+                    if (str[head + 1] == '|') {
+                        head += 2;
+                        head += set_cmd_val(&str[tail], TOR, &cmd);
+                    } else {
+                        head++;
+                        head += set_cmd_val(&str[tail], TPIPE, &cmd);
+                    }
+                    break;
+                case    '<':
+                    if (str[head + 1] == '<') {
+                        head += 2;
+                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        tail = head;
+                        head += set_io_val(&str[tail], IOHERE, &cmd);
+                    } else {
+                        head++;
+                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        tail = head;
+                        head += set_io_val(&str[tail], IOREAD, &cmd);
+                    }
+                    break;
+                case    '>':
+                    if (str[head + 1] == '>') {
+                        head += 2;
+                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        tail = head;
+                        head += set_io_val(&str[tail], IOCAT, &cmd);
+                    } else {
+                        head++;
+                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        tail = head;
+                        head += set_io_val(&str[tail], IOWRITE, &cmd);
+                    }
+                    break;
+                case    '\0':
+                case    '\n':
+                    set_cmd_val(&str[tail], TCOM, &cmd);
+                    break;
             }
-            head++;
-            if (str[head] == '\0' || str[head] == '\n') {
-                cmd->type = TCOM;
+            if (str[head] == '\n' || str[head] == '\0')
                 break;
-            }
-            tail = head;
-            if ((cmd->next = (cmd_t*)
-                        malloc(sizeof(cmd_t))) == NULL)
-                goto ERR;
 
-            cmd->next->prev = cmd;
-            cmd = cmd->next;
-            cmd->next = NULL;
-            cmd->io = NULL;
+            cmd = add_cmdline_t(&cmd);
+            tail = head;
+            head++;
         } else {
             head++;
         }
