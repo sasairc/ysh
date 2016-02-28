@@ -63,6 +63,9 @@ int main(int argc, char* argv[])
         }
     }
 
+    /*
+     * -c, --comand
+     */
     if (yt.cflag == 1) {
         if (parse_cmdline(buf, &cmd, &start) < 0)
             return 1;
@@ -72,6 +75,9 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    /*
+     * prompt
+     */
     while (1) {
         memset(buf, '\0', MAXLEN);
         fprintf(stdout, "%s", PROMPT);
@@ -88,6 +94,7 @@ int main(int argc, char* argv[])
 int set_io_val(char* str, int flag, cmd_t** cmd)
 {
     int     msc = 0,
+            off = 0,
             len = 0;
 
     char*   tmp = NULL,
@@ -104,6 +111,18 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
             *str != '\n') {
         str++;
         len++;
+    }
+    while (*str != '\0' || *str != '\n') {
+        if (*str == '&' && *(str + 1) == '&') {
+            (*cmd)->type = TAND;
+            off++;
+            break;
+        } else if (*str == '|' && *(str + 1) == '|') {
+            (*cmd)->type = TOR;
+            off++;
+            break;
+        }
+        str++;
     }
 
     str = bak;
@@ -131,7 +150,7 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
 
     (*cmd)->io = io;
 
-    return len + 1;
+    return len + off + 1;
 }
 
 int set_cmd_val(char* str, int type, cmd_t** cmd)
@@ -194,8 +213,12 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
          *  start   = NULL;
 
     if ((cmd = (cmd_t*)
-                malloc(sizeof(cmd_t))) == NULL)
+                malloc(sizeof(cmd_t))) == NULL) {
+        fprintf(stderr, "%s: malloc() failure\n",
+                PROGNAME);
+
         return -1;
+    }
 
     start = cmd;
     cmd->io = NULL;
@@ -272,14 +295,14 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
         }
     }
     if (cmd->args[0][0] == '\0')
-        goto ERR;
+        goto NOCMD;
 
     *dest_cmd = start;
     *dest_start = start;
 
     return 0;
 
-ERR:
+NOCMD:
 
     release_cmd_t(start);
 
@@ -409,11 +432,14 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                      * 2. ||
                      * 3. ;
                      */
-                    if (WEXITSTATUS(status) == 0 && cmd->type == TAND) {
+                    if (WEXITSTATUS(status) == 0        &&
+                            cmd->type == TAND) {
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (WEXITSTATUS(status) != 0 && cmd->type == TOR) {
+                    } else if (WEXITSTATUS(status) != 0 &&
+                            cmd->type == TOR) {
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (cmd->type == TPAREN || cmd->type == TCOM) {
+                    } else if (cmd->type == TPAREN      ||
+                            cmd->type == TCOM) {
                         exec_cmd(cmd->next, STDIN_FILENO);
                     }
                 }
@@ -472,7 +498,6 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             if (pid == getpid()) {
                 while (cmd->next != NULL && cmd->type == TPIPE)
                     cmd = cmd->next;
-                if (cmd->next != NULL)
                     exec_cmd(cmd->next, STDIN_FILENO);
             } else {
                 exit(0);
@@ -499,9 +524,9 @@ void mwait(void)
 
     while (1) {
         if ((pid = wait(&status)) == -1) {
-            if (ECHILD == errno)
+            if (errno == ECHILD)
                 break;
-            else if (EINTR == errno)
+            else if (errno == EINTR)
                 continue;
         }
     }

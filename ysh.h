@@ -29,6 +29,7 @@ typedef struct {
 } ysh_t;
 
 typedef struct IO_T {
+    short   io_unit;
     short   io_flag;
     char*   io_name;
 } io_t;
