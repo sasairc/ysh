@@ -3,7 +3,7 @@
  *
  * ysh.c
  *
- * Copyright (c) 2015 sasairc
+ * Copyright (c) 2016 sasairc
  * This work is free. You can redistribute it and/or modify it under the
  * terms of the Do What The Fuck You Want To Public License, Version 2,
  * as published by Sam Hocevar.HocevarHocevar See the COPYING file or http://www.wtfpl.net/
@@ -81,6 +81,7 @@ int main(int argc, char* argv[])
     while (1) {
         memset(buf, '\0', MAXLEN);
         fprintf(stdout, "%s", PROMPT);
+//      fprintf(stdout, "%s %s", getcwd(NULL, 0), PROMPT);
         fgets(buf, MAXLEN, stdin);
         if (parse_cmdline(buf, &cmd, &start) < 0)
             continue;
