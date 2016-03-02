@@ -27,6 +27,7 @@
 #include <getopt.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 int main(int argc, char* argv[])
 {
@@ -360,6 +361,40 @@ int file_redirect(cmd_t* cmd)
     return 0;
 }
 
+int check_file_stat(cmd_t* cmd, mode_t chk)
+{
+    struct stat st;
+
+    if (stat(cmd->args[0], &st) < 0) {
+        switch (errno) {
+            case    ENOENT:
+                fprintf(stderr, "%s: no such file or directory: %s\n",
+                        PROGNAME, cmd->args[0]);
+
+                return -1;
+            case    EACCES:
+                fprintf(stderr, "%s: permission denied: %s\n",
+                        PROGNAME, cmd->args[0]);
+
+                return -2;
+        }
+    }
+    if ((st.st_mode & S_IFMT) == S_IFDIR) {
+        fprintf(stderr, "%s: permission denied: %s\n",
+                PROGNAME, cmd->args[0]);
+
+        return -3;
+    }
+    if ((st.st_mode & chk) == 0) {
+        fprintf(stderr, "%s: permission denied: %s\n",
+                PROGNAME, cmd->args[0]);
+
+        return -4;
+    }
+
+    return 0;
+}
+
 int exec_cmd(cmd_t* cmd, int in_fd)
 {
     int     status  = 0,
@@ -394,13 +429,18 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             redirect(in_fd, STDIN_FILENO);
             if (cmd->io != NULL) {
                 if (file_redirect(cmd) < 0)
-                    exit(0);
+                    exit(1);
+            }
+            if (cmd->args[0][0] == '.'  &&
+                        (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
+                if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                    exit(1);
             }
             execvp(cmd->args[0], cmd->args);
             fprintf(stderr, "%s: command not found: %s\n",
                     PROGNAME, cmd->args[0]);
 
-            exit(0);
+            exit(1);
         }
     }
 
@@ -417,6 +457,11 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             case    0:
                 if (cmd->io != NULL) {
                     if (file_redirect(cmd) < 0)
+                        exit(1);
+                }
+                if (cmd->args[0][0] == '.'  &&
+                            (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
+                    if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                         exit(1);
                 }
                 execvp(cmd->args[0], cmd->args);
@@ -481,6 +526,11 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                     close(fd[0]);
                     redirect(in_fd, STDIN_FILENO);
                     redirect(fd[1], STDOUT_FILENO);
+                    if (cmd->args[0][0] == '.'  &&
+                                (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
+                        if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                            exit(1);
+                    }
                     execvp(cmd->args[0], cmd->args);
                     fprintf(stderr, "%s: command not found: %s\n",
                             PROGNAME, cmd->args[0]);
@@ -499,6 +549,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             if (pid == getpid()) {
                 while (cmd->next != NULL && cmd->type == TPIPE)
                     cmd = cmd->next;
+                if (cmd->next != NULL)
                     exec_cmd(cmd->next, STDIN_FILENO);
             } else {
                 exit(0);
