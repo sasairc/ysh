@@ -211,6 +211,8 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
     int     head    = 0,
             tail    = 0;
 
+    short   dqf     = 0;
+
     cmd_t*  cmd     = NULL,
          *  start   = NULL;
 
@@ -237,7 +239,12 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 str[head] == '\n') {
             switch (str[head]) {
                 case    ';':
+                    if (dqf == 1) {
+                        head++;
+                        break;
+                    }
                     head++;
+                    dqf = 1;
                     set_cmd_val(&str[tail], TPAREN, &cmd);
                     break;
                 case    '&':
@@ -293,6 +300,7 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
             tail = head;
             head++;
         } else {
+            dqf = 0;
             head++;
         }
     }
@@ -319,6 +327,11 @@ int file_redirect(cmd_t* cmd)
     switch (cmd->io->io_flag) {
         case    IOREAD:
         case    IOHERE:
+            if (check_file_stat(cmd, 1,
+                        S_IRUSR |
+                        S_IRGRP |
+                        S_IROTH) < 0)
+                return -1;
             if ((fd = open(cmd->io->io_name,
                             O_RDONLY)) < 0) {
                 perror("ysh: fopen");
@@ -330,6 +343,11 @@ int file_redirect(cmd_t* cmd)
             dup2(fd, 0);
             break;
         case    IOWRITE:
+            if (check_file_stat(cmd, 1,
+                        S_IWUSR |
+                        S_IWGRP |
+                        S_IWOTH) < 0)
+                return -1;
             if ((fd = open(cmd->io->io_name,
                             O_WRONLY    |
                             O_CREAT     |
@@ -343,6 +361,11 @@ int file_redirect(cmd_t* cmd)
             dup2(fd, 1);
             break;
         case    IOCAT:
+            if (check_file_stat(cmd, 1,
+                        S_IWUSR |
+                        S_IWGRP |
+                        S_IWOTH) < 0)
+                return -1;
             if ((fd = open(cmd->io->io_name,
                             O_WRONLY    |
                             O_CREAT     |
@@ -361,33 +384,44 @@ int file_redirect(cmd_t* cmd)
     return 0;
 }
 
-int check_file_stat(cmd_t* cmd, mode_t chk)
+int check_file_stat(cmd_t* cmd, int is_redirect, mode_t chk)
 {
+    char*       path    = NULL;
+
     struct stat st;
 
-    if (stat(cmd->args[0], &st) < 0) {
+    if (is_redirect == 1)
+        path = cmd->io->io_name;
+    else
+        path = cmd->args[0];
+
+    if (stat(path, &st) < 0) {
         switch (errno) {
             case    ENOENT:
+                if (is_redirect == 1)
+                    return 0;
+
                 fprintf(stderr, "%s: no such file or directory: %s\n",
-                        PROGNAME, cmd->args[0]);
+                        PROGNAME, path);
 
                 return -1;
             case    EACCES:
                 fprintf(stderr, "%s: permission denied: %s\n",
-                        PROGNAME, cmd->args[0]);
+                        PROGNAME, path);
 
                 return -2;
         }
     }
+
     if ((st.st_mode & S_IFMT) == S_IFDIR) {
         fprintf(stderr, "%s: permission denied: %s\n",
-                PROGNAME, cmd->args[0]);
+                PROGNAME, path);
 
         return -3;
     }
     if ((st.st_mode & chk) == 0) {
         fprintf(stderr, "%s: permission denied: %s\n",
-                PROGNAME, cmd->args[0]);
+                PROGNAME, path);
 
         return -4;
     }
@@ -433,7 +467,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             }
             if (cmd->args[0][0] == '.'  &&
                         (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                     exit(1);
             }
             execvp(cmd->args[0], cmd->args);
@@ -461,7 +495,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                 }
                 if (cmd->args[0][0] == '.'  &&
                             (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                    if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                    if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                         exit(1);
                 }
                 execvp(cmd->args[0], cmd->args);
@@ -528,7 +562,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                     redirect(fd[1], STDOUT_FILENO);
                     if (cmd->args[0][0] == '.'  &&
                                 (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                        if (check_file_stat(cmd, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                        if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                             exit(1);
                     }
                     execvp(cmd->args[0], cmd->args);
