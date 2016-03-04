@@ -157,8 +157,7 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
 
 int set_cmd_val(char* str, int type, cmd_t** cmd)
 {
-    int     msc = 0,
-            len = 0;
+    int     len = 0;
 
     char*   tmp = NULL,
         *   bak = str;
@@ -187,7 +186,7 @@ int set_cmd_val(char* str, int type, cmd_t** cmd)
     (*cmd)->type = type;
     free(tmp);
 
-    return msc;
+    return 0;
 }
 
 cmd_t* add_cmdline_t(cmd_t** cmd)
@@ -248,27 +247,27 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 case    '&':
                     if (str[head + 1] == '&') {
                         head += 2;
-                        head += set_cmd_val(&str[tail], TAND, &cmd);
+                        set_cmd_val(&str[tail], TAND, &cmd);
                     }
                     break;
                 case    '|':
                     if (str[head + 1] == '|') {
                         head += 2;
-                        head += set_cmd_val(&str[tail], TOR, &cmd);
+                        set_cmd_val(&str[tail], TOR, &cmd);
                     } else {
                         head++;
-                        head += set_cmd_val(&str[tail], TPIPE, &cmd);
+                        set_cmd_val(&str[tail], TPIPE, &cmd);
                     }
                     break;
                 case    '<':
                     if (str[head + 1] == '<') {
                         head += 2;
-                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
                         head += set_io_val(&str[tail], IOHERE, &cmd);
                     } else {
                         head++;
-                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
                         head += set_io_val(&str[tail], IOREAD, &cmd);
                     }
@@ -276,12 +275,12 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 case    '>':
                     if (str[head + 1] == '>') {
                         head += 2;
-                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
                         head += set_io_val(&str[tail], IOCAT, &cmd);
                     } else {
                         head++;
-                        head += set_cmd_val(&str[tail], TCOM, &cmd);
+                        set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
                         head += set_io_val(&str[tail], IOWRITE, &cmd);
                     }
@@ -577,12 +576,27 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                     exit(1);
             }
         default:
-            mwait();
+            status = mwait();
             if (pid == getpid()) {
                 while (cmd->next != NULL && cmd->type == TPIPE)
                     cmd = cmd->next;
-                if (cmd->next != NULL)
-                    exec_cmd(cmd->next, STDIN_FILENO);
+                if (cmd->next != NULL) {
+                    /*
+                     * 1. &&
+                     * 2. ||
+                     * 3. ;
+                     */
+                    if (WEXITSTATUS(status) == 0        &&
+                            cmd->type == TAND) {
+                        exec_cmd(cmd->next, STDIN_FILENO);
+                    } else if (WEXITSTATUS(status) != 0 &&
+                            cmd->type == TOR) {
+                        exec_cmd(cmd->next, STDIN_FILENO);
+                    } else if (cmd->type == TPAREN      ||
+                            cmd->type == TCOM) {
+                        exec_cmd(cmd->next, STDIN_FILENO);
+                    }
+                }
             } else {
                 exit(0);
             }
@@ -591,16 +605,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
     return 0;
 }
 
-void redirect(int oldfd, int newfd)
-{
-    if (oldfd != newfd)
-        if (dup2(oldfd, newfd) == -1)
-            close(oldfd);
-
-    return;
-}
-
-void mwait(void)
+int mwait(void)
 {
     int     status  = 0;
 
@@ -614,6 +619,15 @@ void mwait(void)
                 continue;
         }
     }
+
+    return status;
+}
+
+void redirect(int oldfd, int newfd)
+{
+    if (oldfd != newfd)
+        if (dup2(oldfd, newfd) == -1)
+            close(oldfd);
 
     return;
 }

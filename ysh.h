@@ -51,8 +51,8 @@ extern int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start);
 extern int file_redirect(cmd_t* cmd);
 extern int check_file_stat(cmd_t* cmd, int is_redirect, mode_t chk);
 extern int exec_cmd(cmd_t* cmd, int in_fd);
+extern int mwait(void);
 extern void redirect(int oldfd, int newfd);
-extern void mwait(void);
 extern void release_cmd_t(cmd_t* cmd);
 
 /* YSH_H */
