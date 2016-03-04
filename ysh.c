@@ -181,9 +181,7 @@ int set_cmd_val(char* str, int type, cmd_t** cmd)
 
     memcpy(tmp, str, len);
     tmp[len] = '\0';
-
-    if (trim(tmp) > 0)
-        msc = 1;
+    trim(tmp);
 
     (*cmd)->args = str_to_args(tmp);
     (*cmd)->type = type;
