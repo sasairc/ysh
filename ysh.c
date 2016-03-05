@@ -123,6 +123,12 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
             (*cmd)->type = TOR;
             off++;
             break;
+        } else if (*str == '|') {
+            (*cmd)->type = TPIPE;
+            off++;
+            break;
+        } else if (!isspace(*str)) {
+            break;
         }
         str++;
     }
@@ -464,7 +470,8 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             }
             if (cmd->args[0][0] == '.'  &&
                         (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                if (check_file_stat(cmd, 0,
+                            S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                     exit(1);
             }
             execvp(cmd->args[0], cmd->args);
@@ -492,7 +499,8 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                 }
                 if (cmd->args[0][0] == '.'  &&
                             (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                    if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                    if (check_file_stat(cmd, 0,
+                                S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                         exit(1);
                 }
                 execvp(cmd->args[0], cmd->args);
@@ -554,12 +562,18 @@ int exec_cmd(cmd_t* cmd, int in_fd)
 
                     exit(1);
                 case    0:
-                    close(fd[0]);
-                    redirect(in_fd, STDIN_FILENO);
+                    if (cmd->io != NULL) {
+                        if (file_redirect(cmd) < 0)
+                            exit(1);
+                    } else {
+                        close(fd[0]);
+                        redirect(in_fd, STDIN_FILENO);
+                    }
                     redirect(fd[1], STDOUT_FILENO);
                     if (cmd->args[0][0] == '.'  &&
                                 (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                        if (check_file_stat(cmd, 0, S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                        if (check_file_stat(cmd, 0,
+                                    S_IXUSR | S_IXGRP | S_IXOTH) < 0)
                             exit(1);
                     }
                     execvp(cmd->args[0], cmd->args);
