@@ -17,7 +17,8 @@
 
 extern int ysh_chdir(char** args);
 extern int ysh_exit(cmd_t* cmd);
-extern void ysh_yasuna(void);
+extern int ysh_ret(int ret);
+extern int ysh_yasuna(void);
 
 /* BUILDIN_H */
 #endif

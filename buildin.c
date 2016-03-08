@@ -26,7 +26,20 @@ int ysh_chdir(char** args)
         pwd = args[1];
 
     if (chdir(pwd) < 0) {
-        perror("chdir");
+        switch (errno) {
+            case    ENOENT:
+                fprintf(stderr, "cd: no such file or directory: %s\n",
+                    pwd);
+                break;
+            case    ENOTDIR:
+                fprintf(stderr, "cd: not a directory: %s\n",
+                    pwd);
+                break;
+            case    EACCES:
+                fprintf(stderr, "cd: permission denied: %s\n",
+                    pwd);
+                break;
+        }
 
         return errno;
     }
@@ -41,7 +54,17 @@ int ysh_exit(cmd_t* cmd)
     exit(0);
 }
 
-void ysh_yasuna(void)
+int ysh_ret(int ret)
+{
+    fprintf(stdout, "%d\n",
+            ret);
+
+    return 0;
+}
+
+int ysh_yasuna(void)
 {
     fprintf(stdout, "かわいい！\n");
+
+    return 0;
 }

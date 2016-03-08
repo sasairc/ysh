@@ -70,6 +70,7 @@ int main(int argc, char* argv[])
     if (yt.cflag == 1) {
         if (parse_cmdline(buf, &cmd, &start) < 0)
             return 1;
+
         exec_cmd(cmd, STDIN_FILENO);
         release_cmd_t(start);
 
@@ -120,10 +121,10 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
             str += 2;
     } else if (*(str + 1) == '>') {
         unt = 1;
-        str += 3;
+        str += 2;
     } else {
         unt = 0;
-        str += 3;
+        str += 2;
     }
 
     bak = str;
@@ -407,7 +408,7 @@ int file_redirect(cmd_t* cmd)
 
 int check_file_stat(cmd_t* cmd, int is_redirect, mode_t chk)
 {
-    char*       path    = NULL;
+    char*   path    = NULL;
 
     struct stat st;
 
@@ -452,25 +453,33 @@ int check_file_stat(cmd_t* cmd, int is_redirect, mode_t chk)
 
 int exec_cmd(cmd_t* cmd, int in_fd)
 {
-    int     status  = 0,
-            fd[2]   = {0};
+    static int  ret     = 0;
 
-    pid_t   pid     = 0;
+    int         status  = 0,
+                fd[2]   = {0};
+
+    pid_t       pid     = 0;
 
     /*
      * buildin command
      */
     if (strcmp(cmd->args[0], "cd") == 0) {
-        ysh_chdir(cmd->args);
+        ret = ysh_chdir(cmd->args);
         if (cmd->next != NULL)
             exec_cmd(cmd->next, STDIN_FILENO);
 
         return 0;
     } else if (strcmp(cmd->args[0], "やすなちゃん") == 0) {
-        ysh_yasuna();
+        ret = ysh_yasuna();
         if (cmd->next != NULL)
             exec_cmd(cmd->next, STDIN_FILENO);
         
+        return 0;
+    } else if (strcmp(cmd->args[0], "ret") == 0) {
+        ret = ysh_ret(ret);
+        if (cmd->next != NULL)
+            exec_cmd(cmd->next, STDIN_FILENO);
+
         return 0;
     }
     if (strcmp(cmd->args[0], "exit") == 0)
@@ -495,7 +504,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             fprintf(stderr, "%s: command not found: %s\n",
                     PROGNAME, cmd->args[0]);
 
-            exit(1);
+            exit(errno);
         }
     }
 
@@ -527,25 +536,23 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             default:
                 if (waitpid(pid, &status, 0) < 0)
                     perror("waitpid");
+
+                ret = WEXITSTATUS(status);
                 if (cmd->next != NULL) {
                     /*
                      * 1. &&
                      * 2. ||
                      * 3. ;
                      */
-                    if (WEXITSTATUS(status) == 0        &&
-                            cmd->type == TAND) {
+                    if (ret == 0 && cmd->type == TAND)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (WEXITSTATUS(status) != 0 &&
-                            cmd->type == TOR) {
+                    else if (ret != 0 && cmd->type == TOR)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (cmd->type == TPAREN      ||
-                            cmd->type == TCOM) {
+                    else if (cmd->type == TPAREN || cmd->type == TCOM)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    }
                 }
 
-                return 0;
+                return ret;
         }
     }
 
@@ -609,29 +616,27 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             if (pid == getpid()) {
                 while (cmd->next != NULL && cmd->type == TPIPE)
                     cmd = cmd->next;
+
+                ret = WEXITSTATUS(status);
                 if (cmd->next != NULL) {
                     /*
                      * 1. &&
                      * 2. ||
                      * 3. ;
                      */
-                    if (WEXITSTATUS(status) == 0        &&
-                            cmd->type == TAND) {
+                    if (ret == 0 && cmd->type == TAND)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (WEXITSTATUS(status) != 0 &&
-                            cmd->type == TOR) {
+                    else if (ret != 0 && cmd->type == TOR)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    } else if (cmd->type == TPAREN      ||
-                            cmd->type == TCOM) {
+                    else if (cmd->type == TPAREN || cmd->type == TCOM)
                         exec_cmd(cmd->next, STDIN_FILENO);
-                    }
                 }
             } else {
                 exit(0);
             }
     }
 
-    return 0;
+    return ret;
 }
 
 int mwait(void)
@@ -654,9 +659,10 @@ int mwait(void)
 
 void redirect(int oldfd, int newfd)
 {
-    if (oldfd != newfd)
+    if (oldfd != newfd) {
         if (dup2(oldfd, newfd) == -1)
             close(oldfd);
+    }
 
     return;
 }
@@ -668,9 +674,8 @@ void release_cmd_t(cmd_t* cmd)
     while (cmd != NULL) {
         tmp = cmd->next;
         if (cmd->io != NULL) {
-            if (cmd->io->io_name != NULL) {
+            if (cmd->io->io_name != NULL)
                 free(cmd->io->io_name);
-            }
             free(cmd->io);
         }
         free2d(cmd->args, p_count_file_lines(cmd->args));
