@@ -99,11 +99,34 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
             off = 0,
             len = 0;
 
+    short   unt = 0;
+
     char*   tmp = NULL,
-        *   bak = str;
+        *   bak = NULL;
 
     io_t*   io  = NULL;
 
+    /*
+     * # io_unit
+     * 1. N> file or N>> (N = STDIN, STDOUT, STDERR)
+     * 2. > or >>
+     * 3. < or <<
+     */
+    if (isdigit(*str) && *(str + 1) == '>') {
+        unt = atoi(&*str);
+        if (*(str + 1) == '>' && *(str + 2) == '>')
+            str += 3;
+        else
+            str += 2;
+    } else if (*(str + 1) == '>') {
+        unt = 1;
+        str += 3;
+    } else {
+        unt = 0;
+        str += 3;
+    }
+
+    bak = str;
     while ( *str != ';'     &&
             *str != '|'     &&
             *str != '&'     &&
@@ -153,6 +176,7 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
         return -3;
 
     memcpy(io->io_name, tmp, strlen(tmp) + 1);
+    io->io_unit = unt;
     io->io_flag = flag;
     free(tmp);
 
@@ -178,6 +202,9 @@ int set_cmd_val(char* str, int type, cmd_t** cmd)
         str++;
         len++;
     }
+    if ((*str == '>' || *str == '<')
+            && isdigit(*(str - 1)))
+        len--;
 
     str = bak;
     if ((tmp = (char*)
@@ -270,12 +297,12 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                         head += 2;
                         set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
-                        head += set_io_val(&str[tail], IOHERE, &cmd);
+                        head += set_io_val(&str[tail - 3], IOHERE, &cmd);
                     } else {
                         head++;
                         set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
-                        head += set_io_val(&str[tail], IOREAD, &cmd);
+                        head += set_io_val(&str[tail - 2], IOREAD, &cmd);
                     }
                     break;
                 case    '>':
@@ -283,12 +310,12 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                         head += 2;
                         set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
-                        head += set_io_val(&str[tail], IOCAT, &cmd);
+                        head += set_io_val(&str[tail - 3], IOCAT, &cmd);
                     } else {
                         head++;
                         set_cmd_val(&str[tail], TCOM, &cmd);
                         tail = head;
-                        head += set_io_val(&str[tail], IOWRITE, &cmd);
+                        head += set_io_val(&str[tail - 2], IOWRITE, &cmd);
                     }
                     break;
                 case    '\0':
@@ -354,8 +381,8 @@ int file_redirect(cmd_t* cmd)
 
                 return -1;
             }
-            close(1);
-            dup2(fd, 1);
+            close(cmd->io->io_unit);
+            dup2(fd, cmd->io->io_unit);
             break;
         case    IOCAT:
             if (check_file_stat(cmd, 1, S_IWRITE) < 0)
@@ -369,8 +396,8 @@ int file_redirect(cmd_t* cmd)
 
                 return -1;
             }
-            close(1);
-            dup2(fd, 1);
+            close(cmd->io->io_unit);
+            dup2(fd, cmd->io->io_unit);
             break;
     }
     close(fd);
