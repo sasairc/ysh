@@ -81,8 +81,8 @@ int main(int argc, char* argv[])
      */
     while (1) {
         memset(buf, '\0', MAXLEN);
-        fprintf(stdout, "%s", PROMPT);
-//      fprintf(stdout, "%s %s", getcwd(NULL, 0), PROMPT);
+//      fprintf(stdout, "%s", PROMPT);
+        fprintf(stdout, "%s %s", getcwd(NULL, 0), PROMPT);
         fgets(buf, MAXLEN, stdin);
         if (parse_cmdline(buf, &cmd, &start) < 0)
             continue;
@@ -330,10 +330,7 @@ int file_redirect(cmd_t* cmd)
     switch (cmd->io->io_flag) {
         case    IOREAD:
         case    IOHERE:
-            if (check_file_stat(cmd, 1,
-                        S_IRUSR |
-                        S_IRGRP |
-                        S_IROTH) < 0)
+            if (check_file_stat(cmd, 1, S_IREAD) < 0)
                 return -1;
             if ((fd = open(cmd->io->io_name,
                             O_RDONLY)) < 0) {
@@ -346,10 +343,7 @@ int file_redirect(cmd_t* cmd)
             dup2(fd, 0);
             break;
         case    IOWRITE:
-            if (check_file_stat(cmd, 1,
-                        S_IWUSR |
-                        S_IWGRP |
-                        S_IWOTH) < 0)
+            if (check_file_stat(cmd, 1, S_IWRITE) < 0)
                 return -1;
             if ((fd = open(cmd->io->io_name,
                             O_WRONLY    |
@@ -364,10 +358,7 @@ int file_redirect(cmd_t* cmd)
             dup2(fd, 1);
             break;
         case    IOCAT:
-            if (check_file_stat(cmd, 1,
-                        S_IWUSR |
-                        S_IWGRP |
-                        S_IWOTH) < 0)
+            if (check_file_stat(cmd, 1, S_IWRITE) < 0)
                 return -1;
             if ((fd = open(cmd->io->io_name,
                             O_WRONLY    |
@@ -470,8 +461,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
             }
             if (cmd->args[0][0] == '.'  &&
                         (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                if (check_file_stat(cmd, 0,
-                            S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                if (check_file_stat(cmd, 0, S_IEXEC) < 0)
                     exit(1);
             }
             execvp(cmd->args[0], cmd->args);
@@ -499,8 +489,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                 }
                 if (cmd->args[0][0] == '.'  &&
                             (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                    if (check_file_stat(cmd, 0,
-                                S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                    if (check_file_stat(cmd, 0, S_IEXEC) < 0)
                         exit(1);
                 }
                 execvp(cmd->args[0], cmd->args);
@@ -572,8 +561,7 @@ int exec_cmd(cmd_t* cmd, int in_fd)
                     redirect(fd[1], STDOUT_FILENO);
                     if (cmd->args[0][0] == '.'  &&
                                 (cmd->args[0][1] == '/' || cmd->args[0][1] == '.')) {
-                        if (check_file_stat(cmd, 0,
-                                    S_IXUSR | S_IXGRP | S_IXOTH) < 0)
+                        if (check_file_stat(cmd, 0, S_IEXEC) < 0)
                             exit(1);
                     }
                     execvp(cmd->args[0], cmd->args);
