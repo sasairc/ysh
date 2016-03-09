@@ -121,10 +121,16 @@ int set_io_val(char* str, int flag, cmd_t** cmd)
             str += 2;
     } else if (*(str + 1) == '>') {
         unt = 1;
-        str += 2;
+        if (*(str + 2) == '>')
+            str += 3;
+        else
+            str += 2;
     } else {
         unt = 0;
-        str += 2;
+        if (*(str + 2) == '<')
+            str += 3;
+        else
+            str += 2;
     }
 
     bak = str;
@@ -242,8 +248,6 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
     int     head    = 0,
             tail    = 0;
 
-    short   dqf     = 0;
-
     cmd_t*  cmd     = NULL,
          *  start   = NULL;
 
@@ -270,12 +274,7 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
                 str[head] == '\n') {
             switch (str[head]) {
                 case    ';':
-                    if (dqf == 1) {
-                        head++;
-                        break;
-                    }
                     head++;
-                    dqf = 1;
                     set_cmd_val(&str[tail], TPAREN, &cmd);
                     break;
                 case    '&':
@@ -331,7 +330,6 @@ int parse_cmdline(char* str, cmd_t** dest_cmd, cmd_t** dest_start)
             tail = head;
             head++;
         } else {
-            dqf = 0;
             head++;
         }
     }
