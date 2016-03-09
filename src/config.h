@@ -17,7 +17,7 @@
 #define VERSION         0
 #define PATCHLEVEL      0
 #define SUBLEVEL        0
-#define EXTRAVERSION    ""
+#define EXTRAVERSION    "-んなものはない"
 #define AUTHOR          "sasairc"
 #define MAIL_TO         "sasairc@ssiserver.moe.hm"
 
