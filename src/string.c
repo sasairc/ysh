@@ -3,7 +3,7 @@
  *
  * string.c
  *
- * Copyright (c) 2016 sasairc
+ * Copyright (c) 2015 sasairc
  * This work is free. You can redistribute it and/or modify it under the
  * terms of the Do What The Fuck You Want To Public License, Version 2,
  * as published by Sam Hocevar.HocevarHocevar See the COPYING file or http://www.wtfpl.net/
@@ -26,25 +26,19 @@ int strrep(char* src, char* haystack, char* needle)
 {
     char*   find = NULL;
 
-    if (src == NULL || haystack == NULL || needle == NULL) {
-
-        return 1;
-    }
+    if (src == NULL || haystack == NULL || needle == NULL)
+        return -1;
 
     /* seach strings */
-    if ((find = strstr(src, haystack)) == NULL) {
+    if ((find = strstr(src, haystack)) == NULL)
+        return -2;
 
-        return 2;       /* word not found */
-    }
     if (strlen(haystack) < strlen(needle)) {
         /* reallocate memory */
-        if ((src = (char*)realloc(
-                        src,
-                        strlen(src) + strlen(needle) + 1 - strlen(haystack))
-            ) == NULL) {
+        if ((src = (char*)
+                    realloc(src, strlen(src) + strlen(needle) + 1 - strlen(haystack))) == NULL)
+            return -3;
 
-            return 3;
-        }
         /* move match word to specified location in memory */
         memmove(
             find + strlen(needle),
@@ -80,7 +74,8 @@ char* strlion(int argnum, ...)
 
     va_list list;       /* list of variable arguments */
 
-    if ((argmnt = (char**)malloc(sizeof(char*) * argnum)) == NULL)
+    if ((argmnt = (char**)
+                malloc(sizeof(char*) * argnum)) == NULL)
         return NULL;
 
     /* processing of variable arguments */
@@ -93,7 +88,8 @@ char* strlion(int argnum, ...)
     va_end(list);
 
     /* memory allocation */
-    if ((dest = (char*)malloc(sizeof(char) * (arglen + 1))) == NULL)
+    if ((dest = (char*)
+                malloc(sizeof(char) * (arglen + 1))) == NULL)
         return NULL;
 
     /* concat strings */
@@ -123,9 +119,10 @@ int mbstrlen(char* src)
     int         i   = 0,
                 ch  = 0,
                 len = 0;
+
     gunichar*   cpoints;
 
-    setlocale(LC_CTYPE, LOCALE);            /* set locale (string.h) */
+    setlocale(LC_CTYPE, LOCALE);
 
     while (src[i] != '\0') {
         /* get string length */
@@ -200,10 +197,11 @@ int strmax(int val, char** src)
         len = 0,
         max = 0;
 
-    for (i = 0; i < val; i++) {
+    while (i < val) {
         len = mbstrlen(src[i]);
         if (max < len)
             max = len;
+        i++;
     }
 
     return max;
@@ -214,9 +212,9 @@ int strlftonull(char* str)
     int i   = 0,
         ret = 0;
 
-    for (i = 0; i <= strlen(str); i++) {
+    while (i < strlen(str)) {
         if (str[i] == '\n') {
-            str[i] = '\0';
+            str[i] = '\n';
             ret++;
         }
     }
@@ -244,6 +242,7 @@ char** str_to_args(char* str)
             dspf,
             sqtf,
             dqtf;
+
     char**  args    = NULL;
     
     /* count elements */
@@ -368,20 +367,16 @@ char* mbstrtok(char* str, char* delimiter)
 int trim(char* str)
 {
     int i   = 0,
-        j   = 0,
-        cnt = 0;
+        j   = 0;
 
     i = strlen(str) - 1;
     while (i >= 0 && isspace(*(str + i))) {
         i--;
-        cnt++;
     }
     *(str + i + 1) = '\0';
     i = 0;
-    while (isspace(*(str + i))) {
+    while (isspace(*(str + i)))
         i++;
-        cnt++;
-    }
 
     if (i > 0) {
         j = 0;
@@ -390,7 +385,7 @@ int trim(char* str)
         *(str + j) = '\0';
     }
 
-    return cnt;
+    return 0;
 }
 
 int strcmp_lite(const char* str1, const char* str2)

@@ -3,7 +3,7 @@
  *
  * memory.c
  *
- * Copyright (c) 2016 sasairc
+ * Copyright (c) 2015 sasairc
  * This work is free. You can redistribute it and/or modify it under the
  * terms of the Do What The Fuck You Want To Public License, Version 2,
  * as published by Sam Hocevar.HocevarHocevar See the COPYING file or http://www.wtfpl.net/
@@ -13,34 +13,55 @@
 #include "./memory.h"
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 char** malloc2d(int x, int y)
 {
     int     i   = 0;
+
     char**  buf = NULL;
 
-    if ((buf = (char**) malloc(sizeof(char*) * y)) == NULL) {   /* Allocate array for Y coordinate */
-
+    /* Allocate array for Y coordinate */
+    if ((buf = (char**)
+                malloc(sizeof(char*) * y)) == NULL)
         return NULL;
-    }
-    for (i = 0; i < y; i++) {
-        buf[i] = (char*)malloc(sizeof(char) * x);   /* Allocate array for X coordinate */
+
+    /* Allocate array for X coordinate */
+    while (i < y) {
+        if ((buf[i] = (char*)
+                    malloc(sizeof(char) * x)) == NULL)
+            goto ERR;
+        i++;
     }
 
     return buf;
+
+ERR:
+
+    while (i >= 0) {
+        if (buf[i] != NULL) {
+            free(buf[i]);
+            buf[i] = NULL;
+        }
+        i--;
+    }
+
+    return NULL;
 }
 
 int init2d(char** buf, int x, int y)
 {
-    int i = 0,
-        j = 0;
+    int i = 0;
 
     /* Initialize each element of array */
-    for (i = 0; i < y; i++) {
-        if (buf[i] == NULL) buf[i] = (char*)malloc(sizeof(char) * x);   /* If memory allocation failure, do retry memory allocation. */
-        for (j = 0; j < x; j++) {
-            buf[i][j] = ' ';
+    while (i < y) {
+        if (buf[i] == NULL) {
+            if ((buf[i] = (char*)
+                        malloc(sizeof(char) * x)) == NULL)
+                return -1;
         }
+        memset(buf[i], '\0', x);
+        i++;
     }
 
     return 0;
@@ -50,13 +71,14 @@ void free2d(char** buf, int y)
 {
     int i = 0;
 
-    for (i = 0; i < y; i++) {
+    while (i < y) {
         if (buf[i] != NULL) {
-            free(buf[i]);       /* Memory release the Y coordinate. */
+            free(buf[i]);
             buf[i] = NULL;
         }
+        i++;
     }
-    free(buf);                  /* Release for Memory */
+    free(buf);
 
     return;
 }
