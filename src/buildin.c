@@ -10,7 +10,7 @@
  * for more details.
  */
 
-#include "./ysh.h"
+#include "./cmd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
